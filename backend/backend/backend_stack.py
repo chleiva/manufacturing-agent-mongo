@@ -193,19 +193,14 @@ class BackendStack(Stack):
         model_regions = ['us-east-1', 'us-west-2']
         model_name = "anthropic.claude-3-7-sonnet-20250219-v1:0"
 
-
-        # Define the IAM policy statement for invoking the Bedrock model
         invoke_bedrock_policy = iam.PolicyStatement(
-            actions=["bedrock:InvokeModel"],
+            effect=iam.Effect.ALLOW,
+            actions=["bedrock:InvokeModel*"],
             resources=[
-                # foundation-model ARNs
-                f"arn:aws:bedrock:{region}::foundation-model/{model_name}"
-                for region in model_regions
-            ] + [
-                # inference-profile ARNs (note the account ID is required)
-                f"arn:aws:bedrock:{region}:{self.account}:inference-profile/{model_name}"
-                for region in model_regions
+                f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/*",
+                f"arn:aws:bedrock:us-east-1::foundation-model/*",
+                f"arn:aws:bedrock:us-west-2::foundation-model/*"
             ]
         )
-        # Attach the policy to the Lambda execution role
+
         index_new_document_fn.add_to_role_policy(invoke_bedrock_policy)
