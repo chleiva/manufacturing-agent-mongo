@@ -198,7 +198,12 @@ class BackendStack(Stack):
         invoke_bedrock_policy = iam.PolicyStatement(
             actions=["bedrock:InvokeModel"],
             resources=[
+                # foundation-model ARNs
                 f"arn:aws:bedrock:{region}::foundation-model/{model_name}"
+                for region in model_regions
+            ] + [
+                # inference-profile ARNs (note the account ID is required)
+                f"arn:aws:bedrock:{region}:{self.account}:inference-profile/{model_name}"
                 for region in model_regions
             ]
         )
