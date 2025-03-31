@@ -20,20 +20,22 @@ const Home = () => {
       {/* Header */}
       <header className="h-16 border-b flex items-center justify-between px-4 md:px-6 bg-background">
         <div className="flex items-center space-x-3">
-          <Avatar className="h-8 w-8 bg-primary">
-            <div className="h-full w-full rounded-full flex items-center justify-center text-white font-medium">
-              S
-            </div>
-          </Avatar>
-          <h1 className="text-xl font-semibold">Sam AI Assistant</h1>
+        <div className="h-8 w-8 rounded-full overflow-hidden">
+            <img
+              src="/logo256.png"
+              alt="App Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <h1 className="text-xl font-semibold">MongoDB Manufacturing AI Assistant</h1>
         </div>
 
         <div className="flex items-center space-x-2">
           <ProfileDropdown
             isLoggedIn={isLoggedIn}
-            userName={isLoggedIn ? "John Doe" : "Guest User"}
+            userName={isLoggedIn ? "Christian Leiva" : "CL"}
             userEmail={
-              isLoggedIn ? "john.doe@example.com" : "guest@example.com"
+              isLoggedIn ? "chris@chrisgenai.com" : "chris@chrisgenai.com"
             }
             onLogin={handleLogin}
             onLogout={handleLogout}

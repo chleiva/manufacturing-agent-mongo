@@ -51,9 +51,15 @@ const ChatContainer = ({
     }
   }, [documents, isSidebarOpen]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-
+  
+    const idToken = localStorage.getItem("id_token");
+    if (!idToken) {
+      alert("You must be logged in.");
+      return;
+    }
+  
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -62,52 +68,59 @@ const ChatContainer = ({
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
-
-    // Simulate bot typing
-    setIsLoading(true);
-    const botTypingMessage: Message = {
-      id: `typing-${Date.now()}`,
+  
+    // Show loading bubble
+    const loadingMessage: Message = {
+      id: `loading-${Date.now()}`,
       content: "",
       sender: "bot",
       timestamp: new Date(),
       isLoading: true,
     };
-    setMessages((prev) => [...prev, botTypingMessage]);
-
-    // Simulate bot response after delay
-    setTimeout(() => {
+    setMessages((prev) => [...prev, loadingMessage]);
+    setIsLoading(true);
+  
+    try {
+      const response = await fetch(
+        "https://o43zaz9tv7.execute-api.us-west-2.amazonaws.com/prod/user/message",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: content }),
+        }
+      );
+  
+      const responseBody = await response.text(); // or response.json() if you're returning JSON
       setIsLoading(false);
-      setMessages((prev) => prev.filter((msg) => !msg.isLoading));
-
-      // Simulate bot response with document reference
-      const botResponse: Message = {
-        id: `bot-${Date.now()}`,
-        content: `I've analyzed your request about "${content}". Here's what I found based on the available information.`,
-        sender: "bot",
-        timestamp: new Date(),
-        documentReferences:
-          Math.random() > 0.5 && documents.length > 0
-            ? [documents[Math.floor(Math.random() * documents.length)]]
-            : undefined,
-      };
-
-      setMessages((prev) => [...prev, botResponse]);
-
-      // Update document reference status if a document was referenced
-      if (botResponse.documentReferences?.length) {
-        setDocuments((prev) =>
-          prev.map((doc) => {
-            if (
-              botResponse.documentReferences?.some((ref) => ref.id === doc.id)
-            ) {
-              return { ...doc, isReferenced: true };
-            }
-            return doc;
-          }),
-        );
-      }
-    }, 1500);
+      setMessages((prev) =>
+        prev
+          .filter((msg) => !msg.isLoading)
+          .concat({
+            id: `bot-${Date.now()}`,
+            content: responseBody,
+            sender: "bot",
+            timestamp: new Date(),
+          })
+      );
+    } catch (err) {
+      console.error("Error calling API:", err);
+      setIsLoading(false);
+      setMessages((prev) =>
+        prev
+          .filter((msg) => !msg.isLoading)
+          .concat({
+            id: `bot-${Date.now()}`,
+            content: "Oops! Something went wrong.",
+            sender: "bot",
+            timestamp: new Date(),
+          })
+      );
+    }
   };
+  
 
   const handleAttachFile = (file: File) => {
     // Create a new document from the file

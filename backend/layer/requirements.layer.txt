@@ -1,0 +1,2 @@
+voyageai
+pymongo[srv]==3.12

@@ -33,14 +33,21 @@ const Header = ({
 
   return (
     <header className="w-full h-16 bg-background border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-          <MessageSquare className="w-5 h-5 text-primary-foreground" />
-        </div>
-        <h1 className="text-xl font-semibold hidden sm:block">
-          Sam AI Assistant
-        </h1>
-      </div>
+
+
+<div className="flex items-center gap-2 bg-black p-2">
+  <div className="w-8 h-8 rounded-full overflow-hidden border border-red-500 bg-white">
+  <img
+  src="https://via.placeholder.com/32"
+  alt="Test"
+  className="w-8 h-8 rounded-full object-contain"
+/>
+
+  </div>
+  <h1 className="text-xl font-semibold hidden sm:block">
+    MongoDB Manufacturing AI Assistant
+  </h1>
+</div>
 
       <div className="flex items-center gap-2">
         {isLoggedIn ? (
