@@ -197,9 +197,8 @@ class BackendStack(Stack):
             effect=iam.Effect.ALLOW,
             actions=["bedrock:InvokeModel*"],
             resources=[
-                f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/*",
-                f"arn:aws:bedrock:us-east-1::foundation-model/*",
-                f"arn:aws:bedrock:us-west-2::foundation-model/*"
+                f"arn:aws:bedrock:*:{self.account}:inference-profile/*",
+                "arn:aws:bedrock::*:foundation-model/*"
             ]
         )
 
