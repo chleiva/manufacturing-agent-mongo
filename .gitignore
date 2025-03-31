@@ -10,3 +10,4 @@ backend/layer/
 # Ignore any big zip files
 *.zip
 
+backend/lambda_layer.zip
