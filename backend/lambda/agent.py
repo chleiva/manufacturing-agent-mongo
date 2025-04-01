@@ -1,14 +1,14 @@
-from embedding import invoke_claude_x, get_tag
-from mongodb_tools import get_all_documents
+from embedding import invoke_claude_x, get_tag, create_embeddings
+from mongodb_tools import get_all_documents, search_chunks
 
 
-def determine_actions(user_input, recent_history, context):
+def determine_action(user_input, recent_history, context):
     available_docs = get_all_documents()
 
     # Format each document into a readable string
     formatted_docs = []
     for doc in available_docs:
-        doc_name = f"doc_name:'{doc.get("doc_name", "Unnamed Document")}', "
+        doc_name = f"doc_name:'{doc.get('doc_name', 'Unnamed Document')}'"
         manufacturer = doc.get("manufacturer", "")
         model = doc.get("model", "")
         description = doc.get("doc_description", "")
@@ -65,12 +65,12 @@ def determine_actions(user_input, recent_history, context):
             A. QUERY_DOCS: When specific documents are needed to answer the query
                 - Choose this when the retrieved documentation is insufficient or when specific documents are needed
                 - Identify the document IDs from <AVAILABLE_DOCS> that are most relevant
-                - List these document references within <DOCS> tags (comma-separated if multiple)
+                - List these document references within <DOCS> tags (pipe-separated if multiple)
                 - Think about specific search text that would help find the exact information needed and write it in tags <SEARCH_FOR>.
                 - If all documents might be relevant or you're unsure, write * (wildcard)
                 - End with <ACTION>QUERY_DOCS</ACTION>
                     
-            B. INVALID: When the query is unrelated to available documents or misuses the application
+            B. INVALID: When the query is general knowledge, unrelated to available documents or misuses the application
                 - Choose this only when the query is completely outside the scope of available documentation
                 - End with <ACTION>INVALID</ACTION>
                     
@@ -99,7 +99,7 @@ def determine_actions(user_input, recent_history, context):
         Then EXACTLY ONE of these options:
 
         Option 1:
-        <DOCS>[document IDs or *]</DOCS>
+        <DOCS>[document ID|...  or *]</DOCS>
         <SEARCH_FOR>[specific search text]</SEARCH_FOR>
         <ACTION>QUERY_DOCS</ACTION>
 
@@ -111,9 +111,9 @@ def determine_actions(user_input, recent_history, context):
         <ACTION>QUESTION</ACTION>
 
         Option 4:
-        <ANSWER>[complete answer using retrieved information]</ANSWER>
+        <ANSWER>[Final response to the user question]</ANSWER>
         <ACTION>RESPOND</ACTION>
-"""
+    """
 
     response = invoke_claude_x(prompt)
     action = get_tag(response, "ACTION")
@@ -122,6 +122,57 @@ def determine_actions(user_input, recent_history, context):
     improved_query = get_tag(response, "IMPROVED_USER_QUERY")
     answer = get_tag(response, "ANSWER")
     search_for = get_tag(response, "SEARCH_FOR")
-    return action, docs, question, improved_query, answer, search_for
+    docs = get_tag(response, "DOCS")
+    if docs == "*":
+        docs = []
+    else:
+        docs = docs.split("|")
+        docs = [doc.strip() for doc in docs]
+    return action, docs, question, improved_query, answer, search_for, docs
+
+
+
+
+def retrieve_chunks(search_text, document_list):
+
+    #calculate embeddings for the search text
+    search_embedding = create_embeddings(search_text)
+
+    #perform hybrid search in MongoDB (Vector Search and by doc_name)
+    search_results = search_chunks(search_embedding, document_list, 5)
+
+    return search_results
+
+
+
+
+def agent_loop(user_input, conversation_history):
+    context = ""
+    # Main loop for the agent
+    safe_stop = 5
+    safe_stop_counter = 0
+    while True:
+        # Determine action and context
+        action, docs, question, improved_query, answer, search_for, docs = determine_action(user_input, conversation_history, context)
+        safe_stop_counter += 1
+        if safe_stop_counter > safe_stop:
+            #print("I'm sorry, I could not determine a valid response.")
+            return "I'm sorry, I could not determine a valid response."
+        if action == "INVALID":
+            #print("I'm sorry, I can't help with that..")
+            return "I'm sorry, I can't help with that.."
+        # Handle invalid action
+        elif action == "QUESTION":
+            #print(question)
+            return question
+        elif action == "RESPOND":
+            #print(answer)
+            return answer
+        # Handle respond action
+        elif action == "QUERY_DOCS":
+            search_results = retrieve_chunks(search_for, docs)
+            context = ""
+            for result in search_results:
+                context += f"\n<DOC_BODY>\n{result['text']}\n</DOC_BODY>\n"
 
 

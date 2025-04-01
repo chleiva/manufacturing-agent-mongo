@@ -1,4 +1,3 @@
-
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import time
@@ -33,10 +32,56 @@ def insert_document_chunk_to_mongo(file_name, page, H1, H2, H3, text, embedding,
         "manufacturer": manufacturer,
         "model": model
     }
-
     # Insert the document into MongoDB
     result = collection.insert_one(document)
     print(f"Inserted document with ID: {result.inserted_id}")
+
+
+
+def search_chunks(search_embedding, doc_list, limit):
+    database_name = "manufacturing_database"
+    document_chunks_collection = "documents_chunks"
+
+    db = client[database_name]
+    collection = db[document_chunks_collection]
+
+    # Step 2: Build the vector search stage
+    vector_search_stage = {
+        "$vectorSearch": {
+            "queryVector": search_embedding,
+            "path": "vector",
+            "numCandidates": 100,
+            "limit": limit,
+            "index": "vector_index"
+        }
+    }
+
+    # Step 3: Conditionally apply filter if doc_list is provided
+    if doc_list:
+        vector_search_stage["$vectorSearch"]["filter"] = {
+            "doc_name": { "$in": doc_list }
+        }
+
+    # Step 4: Build aggregation pipeline
+    pipeline = [
+        vector_search_stage,
+        {
+            "$project": {
+                "_id": 1,
+                "file_name": 1,
+                "page": 1,
+                "text": 1,
+                "doc_name": 1,
+                "score": {"$meta": "vectorSearchScore"}
+            }
+        }
+    ]
+
+    # Step 5: Execute the query
+    results = list(collection.aggregate(pipeline))
+    return results
+
+
 
 def get_all_documents():
     database_name = "manufacturing_database"
@@ -48,7 +93,7 @@ def get_all_documents():
     # Retrieve all documents
     documents = list(collection.find())
 
-    print(f"Retrieved {len(documents)} documents.")
+    #print(f"Retrieved {len(documents)} documents.")
     return documents
 
 

@@ -21,27 +21,78 @@ function App() {
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
+
+
   useEffect(() => {
-    // Check if we already have an ID token stored
-    const idToken = localStorage.getItem("id_token");
-    if (idToken) {
-      setIsAuthenticated(true);
-      return;
-    }
-
-    // Otherwise, see if we've just returned from Cognito with a code
-    const params = new URLSearchParams(location.search);
-    const code = params.get("code");
-
-    if (code) {
-      const exchangeCode = async () => {
+    const isTokenExpired = (token) => {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.exp * 1000 < Date.now();
+      } catch (e) {
+        return true;
+      }
+    };
+  
+    const refreshAccessToken = async (refreshToken) => {
+      const body = new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: CLIENT_ID,
+        refresh_token: refreshToken,
+      });
+  
+      const response = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body,
+      });
+  
+      const tokens = await response.json();
+  
+      if (tokens.id_token) {
+        localStorage.setItem("id_token", tokens.id_token);
+        if (tokens.refresh_token) {
+          localStorage.setItem("refresh_token", tokens.refresh_token);
+        }
+        return true;
+      }
+      return false;
+    };
+  
+    const initAuth = async () => {
+      const params = new URLSearchParams(location.search);
+      const code = params.get("code");
+  
+      // First, check local tokens
+      const idToken = localStorage.getItem("id_token");
+      const refreshToken = localStorage.getItem("refresh_token");
+  
+      if (idToken && !isTokenExpired(idToken)) {
+        setIsAuthenticated(true);
+        return;
+      }
+  
+      if (refreshToken) {
+        const success = await refreshAccessToken(refreshToken);
+        if (success) {
+          setIsAuthenticated(true);
+          return;
+        } else {
+          localStorage.removeItem("id_token");
+          localStorage.removeItem("refresh_token");
+        }
+      }
+  
+      // Then try exchanging the code (only if present)
+      if (code) {
         const body = new URLSearchParams({
           grant_type: "authorization_code",
           client_id: CLIENT_ID,
           code: code,
           redirect_uri: REDIRECT_URI,
         });
-
+  
         const response = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
           method: "POST",
           headers: {
@@ -49,20 +100,26 @@ function App() {
           },
           body: body,
         });
-
+  
         const tokens = await response.json();
+  
         if (tokens.id_token) {
           localStorage.setItem("id_token", tokens.id_token);
+          if (tokens.refresh_token) {
+            localStorage.setItem("refresh_token", tokens.refresh_token);
+          }
           setIsAuthenticated(true);
-
-          // Clean URL: remove the ?code param
-          window.history.replaceState({}, document.title, "/");
         }
-      };
-
-      exchangeCode();
-    }
+  
+        // Always clean the URL (very important!)
+        window.history.replaceState({}, document.title, "/");
+      }
+    };
+  
+    initAuth();
   }, [location]);
+  
+  
 
   const login = () => {
     const loginUrl = `${COGNITO_DOMAIN}/oauth2/authorize?response_type=${RESPONSE_TYPE}&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(

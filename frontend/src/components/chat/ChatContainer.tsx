@@ -18,13 +18,13 @@ interface DocumentReference {
   url: string;
 }
 
-interface Document extends DocumentReference {
+interface AppDocument extends DocumentReference {
   isReferenced?: boolean;
 }
 
 interface ChatContainerProps {
   initialMessages?: Message[];
-  initialDocuments?: Document[];
+  initialDocuments?: AppDocument[];
 }
 
 const ChatContainer = ({
@@ -39,7 +39,9 @@ const ChatContainer = ({
   initialDocuments = [],
 }: ChatContainerProps) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const [documents, setDocuments] = useState<AppDocument[]>(
+    initialDocuments ?? []
+  );  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -51,14 +53,20 @@ const ChatContainer = ({
     }
   }, [documents, isSidebarOpen]);
 
+
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
   
     const idToken = localStorage.getItem("id_token");
+    // Only require idToken
     if (!idToken) {
       alert("You must be logged in.");
       return;
     }
+    
+    // Optionally get userId if it exists
+    const userId = localStorage.getItem("user_id");
+    
   
     // Add user message
     const userMessage: Message = {
@@ -89,25 +97,34 @@ const ChatContainer = ({
             Authorization: `Bearer ${idToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ message: content }),
+          body: JSON.stringify({
+            user_id: "userId",
+            request: content,
+            history: messages.map((msg) => ({
+              sender: msg.sender,
+              content: msg.content,
+              timestamp: msg.timestamp,
+            })),
+          }),
         }
       );
   
-      const responseBody = await response.text(); // or response.json() if you're returning JSON
-      setIsLoading(false);
+      const responseJson = await response.json();
+  
+      const botResponse = responseJson.response || "No response from bot";
+  
       setMessages((prev) =>
         prev
           .filter((msg) => !msg.isLoading)
           .concat({
             id: `bot-${Date.now()}`,
-            content: responseBody,
+            content: botResponse,
             sender: "bot",
             timestamp: new Date(),
           })
       );
     } catch (err) {
       console.error("Error calling API:", err);
-      setIsLoading(false);
       setMessages((prev) =>
         prev
           .filter((msg) => !msg.isLoading)
@@ -118,13 +135,17 @@ const ChatContainer = ({
             timestamp: new Date(),
           })
       );
+    } finally {
+      setIsLoading(false);
     }
   };
   
 
+
+
   const handleAttachFile = (file: File) => {
     // Create a new document from the file
-    const newDocument: Document = {
+    const newDocument: AppDocument = {
       id: `doc-${Date.now()}`,
       name: file.name,
       url: URL.createObjectURL(file),
@@ -170,20 +191,19 @@ const ChatContainer = ({
     setIsSidebarOpen(true);
   };
 
-  const handleViewDocument = (document: Document) => {
-    // Open document in a new tab
-    window.open(document.url, "_blank");
+  const handleViewDocument = (doc: AppDocument) => {
+    window.open(doc.url, "_blank");
   };
 
-  const handleDownloadDocument = (document: Document) => {
-    // Create a download link and trigger it
+  const handleDownloadDocument = (doc: AppDocument) => {
     const link = document.createElement("a");
-    link.href = document.url;
-    link.download = document.name;
+    link.href = doc.url;
+    link.download = doc.name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+   };
+  
 
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);

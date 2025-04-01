@@ -20,6 +20,15 @@ class BackendStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
 
+
+        voyageai_layer = _lambda.LayerVersion(
+            self, "VoyageAILayer",
+            code=_lambda.Code.from_asset("layer"),
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
+            description="Layer including voyageai and dependencies"
+        )
+
+
         # S3 Bucket for Manufacturing Documents
         documents_bucket = s3.Bucket(
             self, "ManufacturingDocumentsBucket",
@@ -48,6 +57,7 @@ class BackendStack(Stack):
                 "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm",
                 "MONGODB_URI" : "mongodb+srv://chleiva:nZAyQIy0c5VV1QDw@cluster0.8xirq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
             },
+            layers=[voyageai_layer]  # 👈 Reuse the same layer that has pymongo 
         )
 
         # Create Cognito Authorizer
@@ -106,14 +116,6 @@ class BackendStack(Stack):
 
 
 #s3 and lambda for document parsing
-
-
-        voyageai_layer = _lambda.LayerVersion(
-            self, "VoyageAILayer",
-            code=_lambda.Code.from_asset("layer"),
-            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
-            description="Layer including voyageai and dependencies"
-        )
 
         # Then use it in your function
         index_new_document_fn = _lambda.Function(
@@ -214,3 +216,4 @@ class BackendStack(Stack):
         )
 
         index_new_document_fn.add_to_role_policy(invoke_bedrock_policy)
+        process_message_fn.add_to_role_policy(invoke_bedrock_policy)

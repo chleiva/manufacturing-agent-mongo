@@ -3,6 +3,7 @@ import time
 import uuid
 from common import document_types
 from mongodb_tools import insert_update_request
+from agent import agent_loop
 
 
 def search_inflight_request(user_id, request_id):
@@ -11,10 +12,11 @@ def search_inflight_request(user_id, request_id):
         {"message": "Processing your request", "time_stamp": int(time.time())}
     ]
 
-def new_request(user_id):
+def new_request(user_id, user_request, history):
     # generates new uuid 
     request_id = str(uuid.uuid4())
-    return request_id
+    response = agent_loop(user_request, history)
+    return request_id, response
 
 def update_inflight_request(user_id, request_id, message):
     insert_update_request(user_id, request_id, message, False)
@@ -55,6 +57,8 @@ def handler(event, context):
         elif method == "POST":
             body = json.loads(event.get("body", "{}"))
             user_id = body.get("user_id")
+            user_request = body.get("request", "").strip()
+            history = body.get("history", "")
 
             if not user_id:
                 return {
@@ -63,11 +67,11 @@ def handler(event, context):
                     "body": json.dumps({"error": "Missing 'user_id' in POST request"})
                 }
 
-            new_id = new_request(user_id)
+            new_id, response = new_request(user_id, user_request, history)
             return {
                 "statusCode": 200,
                 "headers": headers,
-                "body": json.dumps({"new_request_id": new_id})
+                "body": json.dumps({"request_id": new_id, "response": response})
             }
 
         elif method == "OPTIONS":
