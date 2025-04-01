@@ -16,6 +16,7 @@ def new_request(user_id, user_request, history):
     # generates new uuid 
     request_id = str(uuid.uuid4())
     response = agent_loop(user_request, history)
+    print(f"request:{user_request}\n\nresponse:{response}")
     return request_id, response
 
 def update_inflight_request(user_id, request_id, message):

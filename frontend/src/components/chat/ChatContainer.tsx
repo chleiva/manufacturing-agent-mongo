@@ -31,7 +31,7 @@ const ChatContainer = ({
   initialMessages = [
     {
       id: "1",
-      content: "Hello! I'm Sam, your AI assistant. How can I help you today?",
+      content: "Hello! I'm your AI assistant for manufacturing documents  .... You can ask me things like: Provide Safety information for FANUC robots or Installation instructions for Ligent Robot inCube20 ..... How can I help you today?",
       sender: "bot",
       timestamp: new Date(Date.now() - 60000 * 5),
     },
@@ -44,6 +44,8 @@ const ChatContainer = ({
   );  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [sidebarUrl, setSidebarUrl] = useState<string | null>(null);
+
 
   // Show sidebar if there are any referenced documents
   useEffect(() => {
@@ -53,14 +55,24 @@ const ChatContainer = ({
     }
   }, [documents, isSidebarOpen]);
 
-
+  function isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      return payload.exp < currentTime;
+    } catch (e) {
+      return true; // If decoding fails, treat it as expired
+    }
+  }
+  
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
   
     const idToken = localStorage.getItem("id_token");
     // Only require idToken
-    if (!idToken) {
-      alert("You must be logged in.");
+    if (!idToken || isTokenExpired(idToken)) {
+      // Redirect to homepage if not logged in
+      window.location.href = "/";
       return;
     }
     
@@ -108,11 +120,27 @@ const ChatContainer = ({
           }),
         }
       );
-  
-      const responseJson = await response.json();
-  
-      const botResponse = responseJson.response || "No response from bot";
-  
+    
+      console.log("HTTP Status:", response.status, response.statusText);
+    
+      const text = await response.text();
+      console.log("Raw Response Body:", text);
+    
+      let responseJson;
+      try {
+        responseJson = JSON.parse(text);
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
+        responseJson = {};
+      }
+    
+      const botResponse =
+        responseJson.response !== undefined && responseJson.response !== null
+          ? responseJson.response
+          : "No response from bot";
+    
+      console.log("Parsed bot response:", botResponse);
+    
       setMessages((prev) =>
         prev
           .filter((msg) => !msg.isLoading)
@@ -130,7 +158,7 @@ const ChatContainer = ({
           .filter((msg) => !msg.isLoading)
           .concat({
             id: `bot-${Date.now()}`,
-            content: "Oops! Something went wrong.",
+            content: "Apologies, error trying to contact the AI agent API.",
             sender: "bot",
             timestamp: new Date(),
           })
@@ -138,6 +166,7 @@ const ChatContainer = ({
     } finally {
       setIsLoading(false);
     }
+    
   };
   
 
@@ -213,20 +242,28 @@ const ChatContainer = ({
     <div className="flex h-full w-full bg-background">
       {/* Document Sidebar */}
       <DocumentSidebar
-        documents={documents}
+        url={sidebarUrl ?? undefined}
         isOpen={isSidebarOpen}
         onToggle={toggleSidebar}
-        onViewDocument={handleViewDocument}
-        onDownloadDocument={handleDownloadDocument}
       />
 
+
       {/* Chat Area */}
-      <div className="flex flex-col flex-1 h-full overflow-hidden">
+      <div
+        className={`flex flex-col h-full overflow-hidden transition-all duration-300 ${
+          isSidebarOpen ? "w-[calc(100%-800px)]" : "w-[calc(100%-40px)]"
+        } min-w-[300px]`}
+      >
         {/* Conversation Area */}
         <ConversationArea
           messages={messages}
           onDocumentClick={handleDocumentClick}
+          onUrlClick={(url) => {
+            setSidebarUrl(url);
+            setIsSidebarOpen(true);
+          }}
         />
+
 
         {/* Message Input */}
         <MessageInput

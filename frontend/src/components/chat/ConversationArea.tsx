@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { FileText, Clock } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -27,39 +28,20 @@ interface DocumentReference {
 interface ConversationAreaProps {
   messages?: Message[];
   onDocumentClick?: (document: DocumentReference) => void;
+  onUrlClick?: (url: string) => void;
 }
 
 const ConversationArea = ({
   messages = [
     {
       id: "1",
-      content: "Hello! I'm Sam, your AI assistant. How can I help you today?",
+      content: "Hello! I'm your AI assistant for manufacturing documents. How can I help you today?",
       sender: "bot",
       timestamp: new Date(Date.now() - 60000 * 5),
     },
-    {
-      id: "2",
-      content:
-        "I need help understanding this research paper. Can you analyze it for me?",
-      sender: "user",
-      timestamp: new Date(Date.now() - 60000 * 3),
-    },
-    {
-      id: "3",
-      content:
-        "I've analyzed the research paper you uploaded. The key findings suggest that machine learning models can effectively predict climate patterns when trained on historical data. The paper references several methodologies on pages 12-15 that might be relevant to your interests.",
-      sender: "bot",
-      timestamp: new Date(Date.now() - 60000),
-      documentReferences: [
-        {
-          id: "doc1",
-          name: "Climate_Research_2023.pdf",
-          url: "#",
-        },
-      ],
-    },
   ],
   onDocumentClick = () => {},
+  onUrlClick = () => {}, 
 }: ConversationAreaProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -104,24 +86,42 @@ const ConversationArea = ({
                         : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                     }`}
                   >
-                    {message.isLoading ? (
-                      <div className="flex items-center space-x-1">
-                        <div
-                          className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "0ms" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "150ms" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
-                          style={{ animationDelay: "300ms" }}
-                        ></div>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    )}
+                        {message.isLoading ? (
+                          <div className="flex items-center space-x-1">
+                            <div
+                              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                              style={{ animationDelay: "0ms" }}
+                            ></div>
+                            <div
+                              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                              style={{ animationDelay: "150ms" }}
+                            ></div>
+                            <div
+                              className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"
+                              style={{ animationDelay: "300ms" }}
+                            ></div>
+                          </div>
+                        ) : (
+                          <div className="prose prose-base md:prose-lg dark:prose-invert max-w-none">
+                          <ReactMarkdown
+                            components={{
+                              a: ({ node, ...props }) => (
+                                <a
+                                  {...props}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    if (props.href) onUrlClick(props.href);
+                                  }}
+                                  className="text-blue-400 underline hover:text-blue-300 transition cursor-pointer"
+                                />
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                          </div>
+                        )}
+
 
                     {message.documentReferences &&
                       message.documentReferences.length > 0 && (

@@ -92,28 +92,10 @@ const MessageInput = ({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 rounded-full"
+          className="flex-1 rounded-full text-lg"
           disabled={isLoading}
         />
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full"
-                onClick={handleAttachClick}
-                disabled={isLoading}
-              >
-                <Paperclip className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Attach PDF</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
 
         <TooltipProvider>
           <Tooltip>

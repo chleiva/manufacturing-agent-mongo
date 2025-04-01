@@ -27,7 +27,12 @@ const Home = () => {
               className="h-full w-full object-contain"
             />
           </div>
-          <h1 className="text-xl font-semibold">MongoDB Manufacturing AI Assistant</h1>
+          <h1 className="text-xl font-semibold leading-tight">
+            AI Manufacturing Assistant
+            <div className="text-sm text-muted-foreground leading-none">
+              by Christian Leiva Beltran · v0.01
+            </div>
+          </h1>
         </div>
 
         <div className="flex items-center space-x-2">

@@ -21,6 +21,8 @@ interface HeaderProps {
   onLogout?: () => void;
 }
 
+
+
 const Header = ({
   isLoggedIn = false,
   userName = "Guest User",

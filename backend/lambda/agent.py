@@ -1,5 +1,6 @@
 from embedding import invoke_claude_x, get_tag, create_embeddings
 from mongodb_tools import get_all_documents, search_chunks
+from s3_presigned import replace_sources_with_links
 
 
 def determine_action(user_input, recent_history, context):
@@ -41,9 +42,9 @@ def determine_action(user_input, recent_history, context):
         {available_docs_text}
         </AVAILABLE_DOCS>
 
-        <RETRIEVED_DOCUMENTATION>
+        <VALID_SOURCES>
         {context}
-        </RETRIEVED_DOCUMENTATION>
+        </VALID_SOURCES>
 
         ## TASK
         You are a document retrieval assistant. Your job is to help users find information from documents or answer questions directly when possible.
@@ -81,11 +82,11 @@ def determine_action(user_input, recent_history, context):
                 - End with <ACTION>QUESTION</ACTION>
                     
             D. RESPOND: When you can fully answer using information already available
-                - Choose this when the information in <RETRIEVED_DOCUMENTATION> or <CONVERSATION_HISTORY> is sufficient
-                - Write your complete answer within <ANSWER> tags
-                - Base your answer SOLELY on information from <RETRIEVED_DOCUMENTATION>, <CONVERSATION_HISTORY>, or <AVAILABLE_DOCS>
+                - Choose this when the information in <VALID_SOURCES> or <CONVERSATION_HISTORY> is sufficient
+                - Write your complete, precise and succinct answer within <ANSWER> tags in markdown format
+                - Base your answer SOLELY on information from <VALID_SOURCES>, <CONVERSATION_HISTORY>, or <AVAILABLE_DOCS>
                 - NEVER fabricate or invent information not present in the provided content
-                - Use direct quotes when appropriate and cite specific sections when possible
+                - You must use quotes and cite specific VALID SOURCES using the following format: <SOURCE doc_file_name='filename.pdf' page='123'>your quoted text here</SOURCE>
                 - Format information clearly with headings, lists, or code blocks as needed
                 - End with <ACTION>RESPOND</ACTION>
 
@@ -111,7 +112,7 @@ def determine_action(user_input, recent_history, context):
         <ACTION>QUESTION</ACTION>
 
         Option 4:
-        <ANSWER>[Final response to the user question]</ANSWER>
+        <ANSWER>[Final response to the user question in markdown with <SOURCE doc_file_name='<filename>' page='<page_number>'...> citatioms]</ANSWER>
         <ACTION>RESPOND</ACTION>
     """
 
@@ -128,6 +129,8 @@ def determine_action(user_input, recent_history, context):
     else:
         docs = docs.split("|")
         docs = [doc.strip() for doc in docs]
+    #creates presigned urls
+    answer = replace_sources_with_links(answer)
     return action, docs, question, improved_query, answer, search_for, docs
 
 
@@ -173,6 +176,12 @@ def agent_loop(user_input, conversation_history):
             search_results = retrieve_chunks(search_for, docs)
             context = ""
             for result in search_results:
-                context += f"\n<DOC_BODY>\n{result['text']}\n</DOC_BODY>\n"
+                context += f"""
+                            <SOURCE doc="{result['file_name']}" page="{result['page']}">
+                            <EXCERPT>
+                            {result['text']}
+                            </EXCERPT>
+                            </SOURCE>
+                            """
 
 

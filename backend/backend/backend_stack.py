@@ -11,6 +11,8 @@ from aws_cdk import (
 from aws_cdk import RemovalPolicy
 from aws_cdk import Duration
 from constructs import Construct
+from aws_cdk import aws_secretsmanager as secretsmanager
+
 
 
 
@@ -18,6 +20,12 @@ class BackendStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs):
         super().__init__(scope, construct_id, **kwargs)
+
+
+        # Reference the existing secret
+        mongoagent_secret = secretsmanager.Secret.from_secret_name_v2(
+            self, "MongoAgentSecret", "mongoagent_secrets"
+        )
 
 
 
@@ -50,15 +58,19 @@ class BackendStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="process_message.handler",
             code=_lambda.Code.from_asset("lambda"),
-            timeout=Duration.seconds(120),
-            memory_size=1024,
+            timeout=Duration.seconds(600),
+            memory_size=2048,
             environment={
                 "BUCKET_NAME": documents_bucket.bucket_name,
-                "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm",
-                "MONGODB_URI" : "mongodb+srv://chleiva:nZAyQIy0c5VV1QDw@cluster0.8xirq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+                "SECRET_NAME": mongoagent_secret.secret_name
             },
             layers=[voyageai_layer]  # 👈 Reuse the same layer that has pymongo 
         )
+
+
+        # Allow Lambda to generate pre-signed URLs for objects in this bucket
+        documents_bucket.grant_read(process_message_fn)
+
 
         # Create Cognito Authorizer
         authorizer = apigw.CognitoUserPoolsAuthorizer(
@@ -79,6 +91,7 @@ class BackendStack(Stack):
             "POST",
             apigw.LambdaIntegration(
                 process_message_fn,
+                timeout=Duration.seconds(60),
                 integration_responses=[
                     apigw.IntegrationResponse(
                         status_code="200",
@@ -129,8 +142,7 @@ class BackendStack(Stack):
             memory_size=1024,
             environment={
                 "BUCKET_NAME": documents_bucket.bucket_name,
-                "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm",
-                "MONGODB_URI" : "mongodb+srv://chleiva:nZAyQIy0c5VV1QDw@cluster0.8xirq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+                "SECRET_NAME": mongoagent_secret.secret_name
             },
             layers=[voyageai_layer]
         )
@@ -217,3 +229,7 @@ class BackendStack(Stack):
 
         index_new_document_fn.add_to_role_policy(invoke_bedrock_policy)
         process_message_fn.add_to_role_policy(invoke_bedrock_policy)
+
+        mongoagent_secret.grant_read(process_message_fn)
+        mongoagent_secret.grant_read(index_new_document_fn)
+

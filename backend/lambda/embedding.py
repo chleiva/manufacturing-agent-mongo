@@ -1,10 +1,28 @@
-import json
+import os
 import boto3
 import re
 import voyageai
 from mongodb_tools import insert_document_to_mongo
 import random
 from common import document_types 
+import json
+
+
+# Get secret name from environment variable
+secret_name = os.environ["SECRET_NAME"]
+region_name = os.environ.get("AWS_REGION", "us-west-2")  # fallback default
+
+# Create a Secrets Manager client
+session = boto3.session.Session()
+client = session.client(service_name="secretsmanager", region_name=region_name)
+
+# Retrieve secret value
+get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+secrets = json.loads(get_secret_value_response["SecretString"])
+
+# Now you can access keys inside the secret
+voyage_api_key = secrets["VOYAGE_API_KEY"]
+mongodb_uri = secrets["MONGODB_URI"]
 
 
 #----- Helper Functions
@@ -26,7 +44,7 @@ def get_tag(text, tag):
 
 
 def create_embeddings(text):
-    vo = voyageai.Client()
+    vo = voyageai.Client(api_key=voyage_api_key)
     result = vo.embed([text], model="voyage-3")
     embedding = result.embeddings[0]
     return embedding

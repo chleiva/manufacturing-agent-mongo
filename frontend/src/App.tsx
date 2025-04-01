@@ -142,15 +142,18 @@ function App() {
   }
 
   return (
-    <Suspense fallback={<p>Loading...</p>}>
-      <>
-        <Routes>
-          <Route path="/" element={<Home />} />
-        </Routes>
-        {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
-      </>
-    </Suspense>
+    <div className="flex flex-col min-h-screen">
+      <Suspense fallback={<p>Loading...</p>}>
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+          </Routes>
+          {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
+        </main>
+      </Suspense>
+    </div>
   );
+  
 }
 
 export default App;
