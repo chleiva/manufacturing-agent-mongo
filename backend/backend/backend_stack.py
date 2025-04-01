@@ -9,9 +9,7 @@ from aws_cdk import (
 )
 
 from aws_cdk import RemovalPolicy
-
 from aws_cdk import Duration
-
 from constructs import Construct
 
 
@@ -20,6 +18,16 @@ class BackendStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs):
         super().__init__(scope, construct_id, **kwargs)
+
+
+        # S3 Bucket for Manufacturing Documents
+        documents_bucket = s3.Bucket(
+            self, "ManufacturingDocumentsBucket",
+            bucket_name="manufacturingdocuments-alfa",
+            removal_policy=RemovalPolicy.DESTROY,  # For dev; change for prod
+            auto_delete_objects=True  # For dev only; ensure compliance before using in prod
+        )
+
 
         # Reference existing Cognito User Pool
         user_pool = cognito.UserPool.from_user_pool_id(
@@ -35,6 +43,11 @@ class BackendStack(Stack):
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.seconds(120),
             memory_size=1024,
+            environment={
+                "BUCKET_NAME": documents_bucket.bucket_name,
+                "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm",
+                "MONGODB_URI" : "mongodb+srv://chleiva:nZAyQIy0c5VV1QDw@cluster0.8xirq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+            },
         )
 
         # Create Cognito Authorizer
@@ -94,13 +107,6 @@ class BackendStack(Stack):
 
 #s3 and lambda for document parsing
 
-        # S3 Bucket for Manufacturing Documents
-        documents_bucket = s3.Bucket(
-            self, "ManufacturingDocumentsBucket",
-            bucket_name="manufacturingdocuments-alfa",
-            removal_policy=RemovalPolicy.DESTROY,  # For dev; change for prod
-            auto_delete_objects=True  # For dev only; ensure compliance before using in prod
-        )
 
         voyageai_layer = _lambda.LayerVersion(
             self, "VoyageAILayer",
@@ -112,16 +118,17 @@ class BackendStack(Stack):
         # Then use it in your function
         index_new_document_fn = _lambda.Function(
             self, "IndexNewDocumentFunction",
-            architecture=_lambda.Architecture.ARM_64,
+            architecture=_lambda.Architecture.X86_64,  # Switch from ARM64
             function_name="IndexNewDocument",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="index_new_document.handler",
             code=_lambda.Code.from_asset("lambda"),
-            timeout=Duration.seconds(600),
-            memory_size=512,
+            timeout=Duration.seconds(900),
+            memory_size=1024,
             environment={
                 "BUCKET_NAME": documents_bucket.bucket_name,
-                "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm"
+                "VOYAGE_API_KEY": "pa-CpGn4V1KNoBBDq0wUC6KNrfHsJuUVh_UvUj2cJVr7Nm",
+                "MONGODB_URI" : "mongodb+srv://chleiva:nZAyQIy0c5VV1QDw@cluster0.8xirq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
             },
             layers=[voyageai_layer]
         )
@@ -197,8 +204,12 @@ class BackendStack(Stack):
             effect=iam.Effect.ALLOW,
             actions=["bedrock:InvokeModel*"],
             resources=[
-                f"arn:aws:bedrock:*:{self.account}:inference-profile/*",
-                "arn:aws:bedrock::*:foundation-model/*"
+                f"arn:aws:bedrock:us-east-1:{self.account}:inference-profile/*",
+                f"arn:aws:bedrock:us-east-2:{self.account}:inference-profile/*",
+                f"arn:aws:bedrock:us-west-2:{self.account}:inference-profile/*",
+                f"arn:aws:bedrock:us-east-1::foundation-model/*",
+                f"arn:aws:bedrock:us-east-2::foundation-model/*",
+                f"arn:aws:bedrock:us-west-2::foundation-model/*"
             ]
         )
 
